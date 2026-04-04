@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenClaw VM"
+  short_description: "Preflight sandbox-vs-VM execution and guide QEMU setup"
+  default_prompt: "Use $openclaw-vm to validate host readiness for headless QEMU VM work, downgrade cleanly to sandbox mode when VM dependencies are missing, and present installation guidance for the current host platform."
