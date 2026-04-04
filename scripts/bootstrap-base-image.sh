@@ -61,6 +61,45 @@ detect_package_manager() {
   return 1
 }
 
+asset_root_has_materials() {
+  local root="$1"
+  local name
+  for name in \
+    ubuntu-24.04-server-cloudimg-amd64.img \
+    ubuntu-24.04.4-live-server-amd64.iso \
+    SHA256SUMS \
+    ubuntu-release-SHA256SUMS
+  do
+    if [[ -f "$root/$name" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+resolve_asset_root() {
+  local skill_root="$1"
+  local parent_root
+  local local_root
+  local fallback_root
+
+  parent_root="$(cd "$skill_root/.." && pwd)"
+  local_root="$skill_root/ubuntu"
+  fallback_root="$parent_root/ubuntu"
+
+  if asset_root_has_materials "$local_root"; then
+    printf '%s' "$local_root"
+    return 0
+  fi
+
+  if asset_root_has_materials "$fallback_root"; then
+    printf '%s' "$fallback_root"
+    return 0
+  fi
+
+  printf '%s' "$local_root"
+}
+
 extract_json_string() {
   local json="$1"
   local key="$2"
@@ -95,7 +134,7 @@ done
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 skill_root="$(cd "$script_dir/.." && pwd)"
-workspace_root="$(cd "$skill_root/.." && pwd)"
+asset_root="$(resolve_asset_root "$skill_root")"
 ensure_host_path="$script_dir/ensure-host.sh"
 
 preflight_json="$("$ensure_host_path")" || {
@@ -107,8 +146,8 @@ host_os="$(extract_json_string "$preflight_json" "host_os")"
 preflight_status="$(extract_json_string "$preflight_json" "status")"
 qemu_img_path="$(extract_preflight_qemu_img_path "$preflight_json")"
 
-cloud_image_path="$workspace_root/ubuntu/ubuntu-24.04-server-cloudimg-amd64.img"
-iso_path="$workspace_root/ubuntu/ubuntu-24.04.4-live-server-amd64.iso"
+cloud_image_path="$asset_root/ubuntu-24.04-server-cloudimg-amd64.img"
+iso_path="$asset_root/ubuntu-24.04.4-live-server-amd64.iso"
 base_image_dir="$skill_root/runtime/cache/base-images"
 base_image_path="$base_image_dir/ubuntu-24.04-base.qcow2"
 metadata_path="$base_image_dir/ubuntu-24.04-base.json"
@@ -153,7 +192,7 @@ else
   fi
 
   if [[ -z "$source_type" ]]; then
-    guidance+=("No Ubuntu bootstrap source was found. Add ubuntu/ubuntu-24.04-server-cloudimg-amd64.img or ubuntu/ubuntu-24.04.4-live-server-amd64.iso relative to the repository root.")
+    guidance+=("No Ubuntu bootstrap source was found. Download the files into ubuntu/ at the repository root. A parent ../ubuntu directory is also accepted as a compatibility fallback.")
   elif [[ "$source_type" == "iso" ]]; then
     guidance+=("ISO bootstrap was detected, but unattended ISO installation is not implemented yet in this phase.")
     guidance+=("Keep the ISO as project material, but use the cloud image to create the first reusable base image.")
@@ -188,6 +227,7 @@ if [[ ("$status" == "created" || "$status" == "exists") && "$DRY_RUN" != "true" 
   mkdir -p "$base_image_dir"
   cat > "$metadata_path" <<EOF
 {
+  "asset_root": $(json_string "$asset_root"),
   "base_image_path": $(json_string "$base_image_path"),
   "source_type": $(json_nullable_string "$source_type"),
   "source_path": $(json_nullable_string "$source_path"),
@@ -209,6 +249,9 @@ json_string "$host_os"
 printf ','
 printf '"preflight_status":'
 json_string "$preflight_status"
+printf ','
+printf '"asset_root":'
+json_string "$asset_root"
 printf ','
 printf '"source_type":'
 json_nullable_string "$source_type"

@@ -113,15 +113,54 @@ detect_package_manager() {
   return 1
 }
 
+asset_root_has_materials() {
+  local root="$1"
+  local name
+  for name in \
+    ubuntu-24.04-server-cloudimg-amd64.img \
+    ubuntu-24.04.4-live-server-amd64.iso \
+    SHA256SUMS \
+    ubuntu-release-SHA256SUMS
+  do
+    if [[ -f "$root/$name" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+resolve_asset_root() {
+  local skill_root="$1"
+  local parent_root
+  local local_root
+  local fallback_root
+
+  parent_root="$(cd "$skill_root/.." && pwd)"
+  local_root="$skill_root/ubuntu"
+  fallback_root="$parent_root/ubuntu"
+
+  if asset_root_has_materials "$local_root"; then
+    printf '%s' "$local_root"
+    return 0
+  fi
+
+  if asset_root_has_materials "$fallback_root"; then
+    printf '%s' "$fallback_root"
+    return 0
+  fi
+
+  printf '%s' "$local_root"
+}
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 skill_root="$(cd "$script_dir/.." && pwd)"
-workspace_root="$(cd "$skill_root/.." && pwd)"
+asset_root="$(resolve_asset_root "$skill_root")"
 
 host_os="$(get_host_os)"
 running_inside_vm="$(detect_running_inside_vm "$host_os")"
 
-cloud_image_path="$workspace_root/ubuntu/ubuntu-24.04-server-cloudimg-amd64.img"
-iso_path="$workspace_root/ubuntu/ubuntu-24.04.4-live-server-amd64.iso"
+cloud_image_path="$asset_root/ubuntu-24.04-server-cloudimg-amd64.img"
+iso_path="$asset_root/ubuntu-24.04.4-live-server-amd64.iso"
 
 if [[ "$host_os" == "windows" ]]; then
   qemu_system_path="$(find_command_path qemu-system-x86_64.exe qemu-system-x86_64 2>/dev/null || true)"
@@ -157,11 +196,8 @@ if [[ "$running_inside_vm" == "true" ]]; then
 fi
 
 package_manager="$(detect_package_manager 2>/dev/null || true)"
-qemu_missing=false
-ssh_missing=false
 
 if [[ -z "$qemu_system_path" || -z "$qemu_img_path" ]]; then
-  qemu_missing=true
   guidance+=("QEMU was not detected. VM mode is unavailable and the skill will fall back to sandbox mode.")
 
   if [[ "$host_os" == "windows" ]]; then
@@ -179,7 +215,6 @@ if [[ -z "$qemu_system_path" || -z "$qemu_img_path" ]]; then
 fi
 
 if [[ -z "$ssh_path" || -z "$scp_path" ]]; then
-  ssh_missing=true
   if [[ "$host_os" == "windows" ]]; then
     guidance+=("OpenSSH client support is required for VM mode. Ensure ssh.exe and scp.exe are available, then rerun host validation.")
   else
@@ -194,7 +229,7 @@ if [[ -z "$ssh_path" || -z "$scp_path" ]]; then
 fi
 
 if [[ "$cloud_image_found" != true && "$iso_found" != true ]]; then
-  guidance+=("Ubuntu base materials were not found. Add ubuntu/ubuntu-24.04-server-cloudimg-amd64.img or ubuntu/ubuntu-24.04.4-live-server-amd64.iso relative to the repository root.")
+  guidance+=("Ubuntu VM materials were not found. Download them into ubuntu/ at the repository root. A parent ../ubuntu directory is also accepted as a compatibility fallback.")
 fi
 
 vm_available=false
@@ -241,6 +276,9 @@ json_nullable_string "$scp_path"
 printf '}'
 printf '},'
 printf '"assets":{'
+printf '"asset_root":'
+json_string "$asset_root"
+printf ','
 printf '"cloud_image_found":'
 json_bool "$cloud_image_found"
 printf ','

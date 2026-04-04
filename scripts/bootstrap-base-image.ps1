@@ -11,6 +11,47 @@ function New-StringList {
     return New-Object System.Collections.Generic.List[string]
 }
 
+function Test-AssetRootHasMaterials {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AssetRoot
+    )
+
+    foreach ($name in @(
+        "ubuntu-24.04-server-cloudimg-amd64.img",
+        "ubuntu-24.04.4-live-server-amd64.iso",
+        "SHA256SUMS",
+        "ubuntu-release-SHA256SUMS"
+    )) {
+        if (Test-Path -LiteralPath (Join-Path $AssetRoot $name)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Resolve-AssetRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SkillRoot
+    )
+
+    $parentRoot = Split-Path -Parent $SkillRoot
+    $localAssetRoot = Join-Path $SkillRoot "ubuntu"
+    $fallbackAssetRoot = Join-Path $parentRoot "ubuntu"
+
+    if (Test-AssetRootHasMaterials -AssetRoot $localAssetRoot) {
+        return $localAssetRoot
+    }
+
+    if (Test-AssetRootHasMaterials -AssetRoot $fallbackAssetRoot) {
+        return $fallbackAssetRoot
+    }
+
+    return $localAssetRoot
+}
+
 function Get-PreflightResult {
     param(
         [Parameter(Mandatory = $true)]
@@ -44,11 +85,11 @@ function Write-MetadataFile {
 try {
     $scriptRoot = Split-Path -Parent $PSCommandPath
     $skillRoot = Split-Path -Parent $scriptRoot
-    $workspaceRoot = Split-Path -Parent $skillRoot
+    $assetRoot = Resolve-AssetRoot -SkillRoot $skillRoot
     $ensureHostPath = Join-Path $scriptRoot "ensure-host.ps1"
 
-    $cloudImagePath = Join-Path $workspaceRoot "ubuntu\ubuntu-24.04-server-cloudimg-amd64.img"
-    $isoPath = Join-Path $workspaceRoot "ubuntu\ubuntu-24.04.4-live-server-amd64.iso"
+    $cloudImagePath = Join-Path $assetRoot "ubuntu-24.04-server-cloudimg-amd64.img"
+    $isoPath = Join-Path $assetRoot "ubuntu-24.04.4-live-server-amd64.iso"
     $baseImageDir = Join-Path $skillRoot "runtime\cache\base-images"
     $baseImagePath = Join-Path $baseImageDir "ubuntu-24.04-base.qcow2"
     $metadataPath = Join-Path $baseImageDir "ubuntu-24.04-base.json"
@@ -97,7 +138,7 @@ try {
         }
 
         if (-not $sourceType) {
-            $guidance.Add("No Ubuntu bootstrap source was found. Add ubuntu/ubuntu-24.04-server-cloudimg-amd64.img or ubuntu/ubuntu-24.04.4-live-server-amd64.iso relative to the repository root.")
+            $guidance.Add("No Ubuntu bootstrap source was found. Download the files into ubuntu/ at the repository root. A parent ../ubuntu directory is also accepted as a compatibility fallback.")
         } elseif ($sourceType -eq "iso") {
             $guidance.Add("ISO bootstrap was detected, but unattended ISO installation is not implemented yet in this phase.")
             $guidance.Add("Keep the ISO as project material, but use the cloud image to create the first reusable base image.")
@@ -132,6 +173,7 @@ try {
 
     if (($status -eq "created" -or $status -eq "exists") -and -not $DryRun) {
         $metadata = [ordered]@{
+            asset_root = $assetRoot
             base_image_path = $baseImagePath
             source_type = $sourceType
             source_path = $sourcePath
@@ -149,6 +191,7 @@ try {
         status = $status
         host_os = [string]$preflight.host_os
         preflight_status = [string]$preflight.status
+        asset_root = $assetRoot
         source_type = $sourceType
         source_path = $sourcePath
         base_image_path = $baseImagePath
@@ -168,4 +211,3 @@ try {
     Write-Error $_
     exit 1
 }
-

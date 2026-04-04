@@ -7,6 +7,22 @@ This skill supports these host operating systems in v1:
 - Windows
 - Linux
 
+## Asset location policy
+
+Large VM assets are intentionally not committed to Git.
+
+Preferred layout when `openclaw-vm` itself is the repository root:
+
+- `ubuntu/ubuntu-24.04-server-cloudimg-amd64.img`
+- `ubuntu/ubuntu-24.04.4-live-server-amd64.iso`
+
+Compatibility fallback when the skill is nested inside a larger workspace:
+
+- `../ubuntu/ubuntu-24.04-server-cloudimg-amd64.img`
+- `../ubuntu/ubuntu-24.04.4-live-server-amd64.iso`
+
+The scripts prefer the first location that actually contains VM materials. If neither location has materials yet, they default to the repository-local `ubuntu/` directory as the download target.
+
 ## Required VM commands
 
 Windows:
@@ -25,12 +41,14 @@ Linux:
 
 ## Required project materials
 
-At least one of these repository-relative assets must exist before VM mode can be considered ready:
+At least one of these assets must exist before VM mode can be considered ready:
 
 - `ubuntu/ubuntu-24.04-server-cloudimg-amd64.img`
 - `ubuntu/ubuntu-24.04.4-live-server-amd64.iso`
 
 The cloud image is preferred. The ISO is the fallback.
+
+If the large assets are missing from Git because the repository is hosted on GitHub, download them locally by following `references/download-assets.md`.
 
 ## Default behavior when QEMU is missing
 

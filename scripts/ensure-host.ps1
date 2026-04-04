@@ -111,6 +111,47 @@ function Get-PackageManager {
     return $null
 }
 
+function Test-AssetRootHasMaterials {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$AssetRoot
+    )
+
+    foreach ($name in @(
+        "ubuntu-24.04-server-cloudimg-amd64.img",
+        "ubuntu-24.04.4-live-server-amd64.iso",
+        "SHA256SUMS",
+        "ubuntu-release-SHA256SUMS"
+    )) {
+        if (Test-Path -LiteralPath (Join-Path $AssetRoot $name)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Resolve-AssetRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SkillRoot
+    )
+
+    $parentRoot = Split-Path -Parent $SkillRoot
+    $localAssetRoot = Join-Path $SkillRoot "ubuntu"
+    $fallbackAssetRoot = Join-Path $parentRoot "ubuntu"
+
+    if (Test-AssetRootHasMaterials -AssetRoot $localAssetRoot) {
+        return $localAssetRoot
+    }
+
+    if (Test-AssetRootHasMaterials -AssetRoot $fallbackAssetRoot) {
+        return $fallbackAssetRoot
+    }
+
+    return $localAssetRoot
+}
+
 function New-ToolStatus {
     param(
         [AllowNull()]
@@ -129,11 +170,10 @@ try {
 
     $scriptRoot = Split-Path -Parent $PSCommandPath
     $skillRoot = Split-Path -Parent $scriptRoot
-    $workspaceRoot = Split-Path -Parent $skillRoot
+    $assetRoot = Resolve-AssetRoot -SkillRoot $skillRoot
 
-    $ubuntuRoot = Join-Path $workspaceRoot "ubuntu"
-    $cloudImagePath = Join-Path $ubuntuRoot "ubuntu-24.04-server-cloudimg-amd64.img"
-    $isoPath = Join-Path $ubuntuRoot "ubuntu-24.04.4-live-server-amd64.iso"
+    $cloudImagePath = Join-Path $assetRoot "ubuntu-24.04-server-cloudimg-amd64.img"
+    $isoPath = Join-Path $assetRoot "ubuntu-24.04.4-live-server-amd64.iso"
 
     if ($hostOs -eq "windows") {
         $qemuSystemPath = Find-ApplicationPath -Candidates @("qemu-system-x86_64.exe", "qemu-system-x86_64")
@@ -200,7 +240,7 @@ try {
     }
 
     if (-not ($cloudImageFound -or $isoFound)) {
-        $guidance.Add("Ubuntu base materials were not found. Add ubuntu/ubuntu-24.04-server-cloudimg-amd64.img or ubuntu/ubuntu-24.04.4-live-server-amd64.iso relative to the repository root.")
+        $guidance.Add("Ubuntu VM materials were not found. Download them into ubuntu/ at the repository root. A parent ../ubuntu directory is also accepted as a compatibility fallback.")
     }
 
     $vmAvailable = $missingRequired.Count -eq 0
@@ -219,6 +259,7 @@ try {
             scp = New-ToolStatus -Path $scpPath
         }
         assets = [ordered]@{
+            asset_root = $assetRoot
             cloud_image_found = $cloudImageFound
             iso_found = $isoFound
         }
@@ -233,4 +274,3 @@ try {
     Write-Error $_
     exit 1
 }
-

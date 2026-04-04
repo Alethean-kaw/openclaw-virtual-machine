@@ -21,10 +21,15 @@ Not yet implemented in the current phase:
 
 ## Source selection
 
-Use these repository-relative inputs in this order:
+Use these asset roots in this order:
 
-1. `ubuntu/ubuntu-24.04-server-cloudimg-amd64.img`
-2. `ubuntu/ubuntu-24.04.4-live-server-amd64.iso`
+1. `ubuntu/` inside the repository root
+2. `../ubuntu/` as a compatibility fallback for nested workspace layouts
+
+Within the resolved asset root, use these source files in this order:
+
+1. `ubuntu-24.04-server-cloudimg-amd64.img`
+2. `ubuntu-24.04.4-live-server-amd64.iso`
 
 The cloud image is the supported bootstrap source in this phase.
 
@@ -35,19 +40,20 @@ If only the ISO is present, the script should return a structured `blocked` resu
 Write outputs under the skill directory:
 
 - Base image:
-  - `openclaw-vm/runtime/cache/base-images/ubuntu-24.04-base.qcow2`
+  - `runtime/cache/base-images/ubuntu-24.04-base.qcow2`
 - Metadata:
-  - `openclaw-vm/runtime/cache/base-images/ubuntu-24.04-base.json`
+  - `runtime/cache/base-images/ubuntu-24.04-base.json`
 
 ## Bootstrap behavior
 
 The bootstrap script should:
 
 1. Run host preflight first.
-2. Resolve the preferred source asset.
-3. Reuse the existing base image unless forced.
-4. Convert the cloud image into qcow2 format with `qemu-img`.
-5. Write metadata describing how the base image was created.
+2. Resolve the preferred asset root.
+3. Resolve the preferred source asset.
+4. Reuse the existing base image unless forced.
+5. Convert the cloud image into qcow2 format with `qemu-img`.
+6. Write metadata describing how the base image was created.
 
 ## Result contract
 
@@ -66,4 +72,5 @@ The bootstrap scripts return JSON with these result states:
 
 - If `qemu-img` is missing, return `blocked` with installation guidance.
 - If the cloud image is missing and only the ISO is present, return `blocked` and explain that ISO bootstrap is not yet implemented in this phase.
-- If no source material exists, return `blocked` with the expected repository-relative paths.
+- If no source material exists, return `blocked` with the expected local download paths.
+- If the repository is being hosted on GitHub, do not commit the large assets; instead download them locally by following `references/download-assets.md`.
