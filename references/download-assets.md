@@ -75,6 +75,31 @@ grep 'ubuntu-24.04-server-cloudimg-amd64.img' ./ubuntu/SHA256SUMS
 grep 'ubuntu-24.04.4-live-server-amd64.iso' ./ubuntu/ubuntu-release-SHA256SUMS
 ```
 
+## Local audit scripts
+
+After downloading, run the local audit script from the repository root:
+
+Windows:
+
+```powershell
+.\scripts\check-assets.ps1
+```
+
+Linux:
+
+```bash
+bash ./scripts/check-assets.sh
+```
+
+The audit result tells you whether the repository is:
+
+- `complete`
+  - cloud image and ISO are both present and hash-verified
+- `usable`
+  - the cloud image is present and verified, so the current bootstrap flow can proceed
+- `needs_attention`
+  - one or more required files are missing, or a checksum mismatch was detected
+
 ## Optional note
 
 If you also want the Ubuntu desktop ISO for manual experiments, it is available from the same Ubuntu releases page, but it is not required by the current skill workflow.

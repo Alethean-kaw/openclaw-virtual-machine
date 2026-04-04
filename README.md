@@ -29,6 +29,7 @@ See `references/download-assets.md` for official download URLs, commands, and ve
 Windows:
 
 ```powershell
+.\scripts\check-assets.ps1
 .\scripts\ensure-host.ps1
 .\scripts\bootstrap-base-image.ps1
 ```
@@ -36,6 +37,7 @@ Windows:
 Linux:
 
 ```bash
+bash ./scripts/check-assets.sh
 bash ./scripts/ensure-host.sh
 bash ./scripts/bootstrap-base-image.sh
 ```
@@ -50,6 +52,10 @@ bash ./scripts/bootstrap-base-image.sh
   - base image bootstrap behavior and result contract
 - `references/download-assets.md`
   - local asset download and verification guide
+- `scripts/check-assets.ps1`
+  - audit local VM assets and verify hashes on Windows
+- `scripts/check-assets.sh`
+  - audit local VM assets and verify hashes on Linux
 
 ## Asset path policy
 
